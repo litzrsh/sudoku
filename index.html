@@ -11,26 +11,34 @@
         <button
           type="button"
           class="button is-primary"
-          title="New game"
-          onclick="javascript:startNewGame(false)"
+          title="Start"
+          onclick="javascript:startNewGame(true)"
         >
           Start
         </button>
         <button
           type="button"
-          class="button is-info"
-          title="New game"
-          onclick="javascript:startNewGame(true)"
+          class="button is-warn"
+          title="Stop"
+          onclick="javascript:stopGame()"
         >
-          Start single
+          Stop
         </button>
         <button
           type="button"
           class="button is-warn"
-          title="New game"
-          onclick="javascript:stopGame()"
+          title="Redo"
+          onclick="javascript:redo()"
         >
-          Stop
+          Redo
+        </button>
+        <button
+          type="button"
+          class="button is-warn"
+          title="Auto"
+          onclick="javascript:auto()"
+        >
+          Auto
         </button>
       </div>
       <div class="info">
@@ -90,7 +98,15 @@
         };
 
         window.stopGame = function () {
-          stop = true;
+          sudoku.closeGame();
+        };
+
+        window.auto = function () {
+          sudoku.auto();
+        };
+
+        window.redo = function () {
+          sudoku.redo();
         };
       };
     </script>

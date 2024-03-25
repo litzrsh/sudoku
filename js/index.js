@@ -1,5 +1,6 @@
 (function () {
   const GRID_SIZE = 9;
+  const WAIT_FOR = 50;
 
   class Sudoku {
     id = null;
@@ -46,6 +47,26 @@
               item.classList.add("sudoku-item");
               item.dataset.i = i * 3 + y;
               item.dataset.j = j * 3 + x;
+              item.addEventListener("click", () => {
+                if (!this.isGameStarted || this.isFinished) return;
+                const i = item.dataset.i;
+                const j = item.dataset.j;
+                var wave = this.grid[i][j];
+                if (wave.isFixed) return;
+                var v = prompt("Please input value (1 ~ 9)");
+                if (wave.isCollapsed) {
+                  __undo(this, i, j);
+                }
+                if (v) {
+                  try {
+                    this.collapse(i, j, parseInt(v));
+                  } catch (e) {
+                    alert(e);
+                  }
+                } else {
+                  __render(this);
+                }
+              });
               box.appendChild(item);
             }
           }
@@ -59,9 +80,7 @@
       this.closeGame();
       __init_sudoku.apply(this);
       for (var i = 0; i < 10; ) {
-        var coords = __random_coords(
-          this.minValue.coords.length > 0 ? this.minValue.coords : null
-        );
+        var coords = __random_coords();
         var wave = this.grid[coords[0]][coords[1]];
         if (!wave.isCollapsed) {
           var index = parseInt(Math.random() * wave.statusList.length);
@@ -70,9 +89,9 @@
           i++;
         }
       }
-      __update_min.apply(this);
+      __update_min(this);
       this.isGameStarted = true;
-      requestAnimationFrame((t) => this.next(t));
+      // requestAnimationFrame((t) => this.next(t));
     }
 
     closeGame() {
@@ -94,8 +113,26 @@
       }
     }
 
+    auto() {
+      if (!this.isGameStarted) return;
+      requestAnimationFrame((t) => this.next(t));
+    }
+
+    redo() {
+      if (!this.isGameStarted) return;
+      __restore(this);
+    }
+
     next(t) {
       if (!this.isGameStarted) return;
+      if (this.prev === null) {
+        this.prev = t;
+        requestAnimationFrame((t) => this.next(t));
+        return;
+      } else if (t - this.prev < WAIT_FOR) {
+        requestAnimationFrame((t) => this.next(t));
+        return;
+      }
       if (!this.isFinished && this.minValue.value === null) {
         var hist = __restore(this);
         if (!hist) {
@@ -103,7 +140,10 @@
           ++this.failed;
           this.isFinished = true;
           if (this.onstop) this.onstop(this);
-        } else requestAnimationFrame((t) => this.next(t));
+        } else {
+          this.prev = t;
+          requestAnimationFrame((t) => this.next(t));
+        }
       } else if (this.isFinished) {
         console.info("Success");
         ++this.success;
@@ -116,6 +156,7 @@
         var value = wave.statusList[index];
         try {
           this.collapse(coords[0], coords[1], value);
+          this.prev = t;
           requestAnimationFrame((t) => this.next(t));
         } catch (e) {
           console.error(e);
@@ -125,7 +166,10 @@
             ++this.failed;
             this.isFinished = true;
             if (this.onstop) this.onstop(this);
-          } else requestAnimationFrame((t) => this.next(t));
+          } else {
+            this.prev = t;
+            requestAnimationFrame((t) => this.next(t));
+          }
         }
       }
     }
@@ -137,9 +181,9 @@
       if (!wave.collapsable(value))
         throw `Unable to collapse to value ${value}`;
       wave.collapse(value, fixed);
-      __propagate.apply(this, [i, j, value]);
+      __propagate(this, i, j, value);
       this.visualGrid[i][j] = value;
-      __update_min.apply(this);
+      __update_min(this);
       if (!fixed) {
         var item = {
           i,
@@ -147,25 +191,9 @@
           value: wave.value,
           statusList,
         };
-        // console.log(this.history.length, item);
         this.history.unshift(item);
       }
-      for (var di = 0; di < GRID_SIZE; di++) {
-        for (var dj = 0; dj < GRID_SIZE; dj++) {
-          wave = this.grid[di][dj];
-          var el = this.el.querySelector(`[data-i="${di}"][data-j="${dj}"]`);
-          if (!wave.isCollapsed && wave.statusList.length === 0) {
-            __restore(this);
-            throw "Failed";
-          }
-          if (!el) continue;
-          if (wave.isCollapsed) {
-            el.innerHTML = `<span>${wave.value}</span>`;
-          } else {
-            el.innerHTML = wave.statusList.map((e) => `<em>${e}</em>`).join("");
-          }
-        }
-      }
+      if (!__render(this)) throw "Failed";
     }
 
     dispose() {
@@ -200,7 +228,9 @@
     }
 
     ext(value) {
-      this.statusList = this.statusList.filter((v) => v !== value);
+      if (this.statusList.includes(value)) {
+        this.statusList.splice(this.statusList.indexOf(value), 1);
+      }
     }
 
     add(value) {
@@ -225,44 +255,70 @@
     }
   }
 
-  function __propagate(i, j, value) {
+  function __propagate(vm, i, j, value) {
     for (var t = 0; t < GRID_SIZE; t++) {
-      this.grid[t][j].ext(value);
-      this.grid[i][t].ext(value);
+      vm.grid[t][j].ext(value);
+      vm.grid[i][t].ext(value);
     }
     var offset = __offset(i, j);
     for (var y = 0; y < 3; y++) {
       for (var x = 0; x < 3; x++) {
-        this.grid[offset[0] + y][offset[1] + x].ext(value);
+        vm.grid[offset[0] * 3 + y][offset[1] * 3 + x].ext(value);
       }
     }
   }
 
-  function __unpropagate(i, j, value) {
+  function __unpropagate(vm, i, j, value) {
     for (var t = 0; t < GRID_SIZE; t++) {
-      this.grid[t][j].add(value);
-      this.grid[i][t].add(value);
+      vm.grid[t][j].add(value);
+      vm.grid[i][t].add(value);
     }
     var offset = __offset(i, j);
     for (var y = 0; y < 3; y++) {
       for (var x = 0; x < 3; x++) {
-        this.grid[offset[0] + y][offset[1] + x].add(value);
+        vm.grid[offset[0] + y][offset[1] + x].add(value);
       }
     }
   }
 
-  function __restore(vm) {
+  function __undo(vm, i, j) {
+    var wave = vm.grid[i][j];
+    if (wave.isFixed) return;
+    var value = wave.value;
+    wave.isCollapsed = false;
+    wave.value = null;
+    wave.statusList = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    if (value !== null) {
+      __unpropagate(vm, i, j, value);
+    }
+    for (var t = 0; t < GRID_SIZE; t++) {
+      var tv = vm.grid[t][j].value;
+      if (tv) wave.ext(tv);
+      tv = vm.grid[i][t].value;
+      if (tv) wave.ext(tv);
+    }
+    var offset = __offset(i, j);
+    for (var y = 0; y < 3; y++) {
+      for (var x = 0; x < 3; x++) {
+        var tv = vm.grid[offset[0] + y][offset[1] + x];
+        if (tv) wave.ext(tv);
+      }
+    }
+  }
+
+  function __restore(vm, force) {
     var hist = vm.history.shift();
-    if (++vm.popHist > 1000) return null;
+    if (++vm.popHist > 100) return null;
     if (hist) {
       var wave = vm.grid[hist.i][hist.j];
       wave.isCollapsed = false;
       wave.value = null;
       wave.statusList = Object.assign(hist.statusList);
-      __unpropagate.apply(vm, [hist.i, hist.j, hist.value]);
+      __unpropagate(vm, hist.i, hist.j, hist.value);
       wave.ext(hist.value);
-      __update_min.apply(vm);
-      // console.log(vm.history.length, hist.statusList.length === 1, hist, wave);
+      __update_min(vm);
+      __render(vm);
+      if (force) return hist;
       return hist.statusList.length === 1 ? __restore(vm) : hist;
     } else return null;
   }
@@ -288,28 +344,48 @@
     return URL.createObjectURL(new Blob()).slice(-36);
   }
 
-  function __update_min() {
-    this.minValue = {
+  function __update_min(vm) {
+    vm.minValue = {
       value: null,
       coords: [],
     };
-    this.isFinished = true;
+    vm.isFinished = true;
     for (var i = 0; i < GRID_SIZE; i++) {
       for (var j = 0; j < GRID_SIZE; j++) {
-        this.isFinished = this.isFinished && this.grid[i][j].isCollapsed;
-        var value = this.grid[i][j].statusList.length;
+        vm.isFinished = vm.isFinished && vm.grid[i][j].isCollapsed;
+        var value = vm.grid[i][j].statusList.length;
         if (value === 0) continue;
-        if (this.minValue.value === null) {
-          this.minValue.value = value;
-          this.minValue.coords = [[i, j]];
-        } else if (this.minValue.value === value) {
-          this.minValue.coords.push([i, j]);
-        } else if (this.minValue.value > value) {
-          this.minValue.value = value;
-          this.minValue.coords = [[i, j]];
+        if (vm.minValue.value === null) {
+          vm.minValue.value = value;
+          vm.minValue.coords = [[i, j]];
+        } else if (vm.minValue.value === value) {
+          vm.minValue.coords.push([i, j]);
+        } else if (vm.minValue.value > value) {
+          vm.minValue.value = value;
+          vm.minValue.coords = [[i, j]];
         }
       }
     }
+  }
+
+  function __render(vm) {
+    var error = false;
+    for (var i = 0; i < GRID_SIZE; i++) {
+      for (var j = 0; j < GRID_SIZE; j++) {
+        wave = vm.grid[i][j];
+        var el = vm.el.querySelector(`[data-i="${i}"][data-j="${j}"]`);
+        if (!wave.isCollapsed && wave.statusList.length === 0) {
+          error = true;
+        }
+        if (!el) continue;
+        if (wave.isCollapsed) {
+          el.innerHTML = `<span>${wave.value}</span>`;
+        } else {
+          el.innerHTML = wave.statusList.map((e) => `<em>${e}</em>`).join("");
+        }
+      }
+    }
+    return !error;
   }
 
   window.Sudoku = Sudoku;
