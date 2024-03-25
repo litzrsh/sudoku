@@ -89,10 +89,28 @@
           if (sudoku.isGameStarted && !sudoku.isFinished) {
             var result = confirm("Start new game?");
             if (result) {
-              sudoku.newGame();
+              var v = prompt("Input initial count (10 ~ 20)");
+              if (!v) v = 10;
+              else {
+                v = parseInt(v);
+                if (isNaN(v) || v < 10 || v > 20) {
+                  alert("Please input 10 ~ 20");
+                  return;
+                }
+              }
+              sudoku.newGame(v);
             }
           } else {
-            sudoku.newGame();
+            var v = prompt("Input initial count (10 ~ 20)");
+            if (!v) v = 10;
+            else {
+              v = parseInt(v);
+              if (isNaN(v) || v < 10 || v > 20) {
+                alert("Please input 10 ~ 20");
+                return;
+              }
+            }
+            sudoku.newGame(v);
           }
           stop = s;
         };

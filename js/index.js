@@ -76,10 +76,10 @@
       this.el.append(wrap);
     }
 
-    newGame() {
+    newGame(max = 10) {
       this.closeGame();
       __init_sudoku.apply(this);
-      for (var i = 0; i < 10; ) {
+      for (var i = 0; i < max; ) {
         var coords = __random_coords();
         var wave = this.grid[coords[0]][coords[1]];
         if (!wave.isCollapsed) {
@@ -91,7 +91,7 @@
       }
       __update_min(this);
       this.isGameStarted = true;
-      // requestAnimationFrame((t) => this.next(t));
+      // requestAnimationFrame((t) => this.next(t));l;
     }
 
     closeGame() {
