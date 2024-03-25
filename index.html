@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sudoku</title>
+    <link rel="stylesheet" href="css/bulma.min.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div class="toolbar">
+      <div class="buttons">
+        <button
+          type="button"
+          class="button is-primary"
+          title="New game"
+          onclick="javascript:startNewGame()"
+        >
+          New Game
+        </button>
+        <button
+          type="button"
+          class="button is-warn"
+          title="New game"
+          onclick="javascript:stopGame()"
+        >
+          Stop
+        </button>
+      </div>
+    </div>
+    <div id="sudoku"></div>
+
+    <script type="text/javascript" src="js/index.js"></script>
+    <script type="text/javascript">
+      window.onload = function () {
+        var sudoku = new Sudoku("sudoku");
+
+        window.startNewGame = function () {
+          if (sudoku.isGameStarted && !sudoku.isFinished) {
+            var result = confirm("Start new game?");
+            if (result) {
+              sudoku.newGame();
+            }
+          } else {
+            sudoku.newGame();
+          }
+        };
+
+        window.stopGame = function () {
+          if (!sudoku.isGameStarted) {
+            alert("Game has not began");
+          } else {
+            sudoku.closeGame();
+          }
+        };
+      };
+    </script>
+  </body>
+</html>

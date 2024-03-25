@@ -1,0 +1,48 @@
+.toolbar {
+  display: flex;
+  padding: 0.5rem;
+}
+
+.sudoku {
+  --width: 3em;
+  --height: 3em;
+}
+
+.sudoku .sudoku-container {
+  margin: auto;
+  width: calc(var(--width) * 9);
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid #626262;
+}
+
+.sudoku .sudoku-container .sudoku-box {
+  border: 2px solid #626262;
+  width: calc(var(--width) * 3);
+  height: calc(var(--height) * 3);
+  flex: 1 1 33%;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.sudoku .sudoku-container .sudoku-box > div {
+  flex: 1 1 33%;
+  height: var(--height);
+  border: 1px solid #626262;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.sudoku .sudoku-container .sudoku-box > div > em {
+  text-align: center;
+  font-size: 60%;
+  flex: 1 1 33%;
+  color: #606060;
+}
+
+.sudoku .sudoku-container .sudoku-box > div > span {
+  font-size: 120%;
+  font-weight: bold;
+}
