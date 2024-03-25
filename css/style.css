@@ -1,6 +1,28 @@
 .toolbar {
   display: flex;
   padding: 0.5rem;
+  justify-content: space-between;
+}
+
+.toolbar .info {
+  display: flex;
+  column-gap: 1em;
+}
+
+.toolbar .info > .field {
+  display: flex;
+  flex-wrap: nowrap;
+  margin: 0;
+}
+
+.toolbar .info .field .label {
+  flex: 1 0 10%;
+  margin: 0;
+}
+
+.toolbar .info .field span {
+  flex: 1 0 100%;
+  margin-left: 0.5em;
 }
 
 .sudoku {

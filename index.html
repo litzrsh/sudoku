@@ -12,9 +12,17 @@
           type="button"
           class="button is-primary"
           title="New game"
-          onclick="javascript:startNewGame()"
+          onclick="javascript:startNewGame(false)"
         >
-          New Game
+          Start
+        </button>
+        <button
+          type="button"
+          class="button is-info"
+          title="New game"
+          onclick="javascript:startNewGame(true)"
+        >
+          Start single
         </button>
         <button
           type="button"
@@ -25,15 +33,51 @@
           Stop
         </button>
       </div>
+      <div class="info">
+        <div class="field">
+          <label class="label">Total</label>
+          <span id="total">0</span>
+        </div>
+        <div class="field">
+          <label class="label">Success</label>
+          <span id="success">0</span>
+        </div>
+        <div class="field">
+          <label class="label">Failed</label>
+          <span id="failed">0</span>
+        </div>
+        <div class="field">
+          <label class="label">Rate</label>
+          <span id="rate">0%</span>
+        </div>
+      </div>
     </div>
     <div id="sudoku"></div>
 
     <script type="text/javascript" src="js/index.js"></script>
     <script type="text/javascript">
       window.onload = function () {
+        var stop = true;
         var sudoku = new Sudoku("sudoku");
+        var timeout = null;
+        sudoku.onstop = function () {
+          var total = sudoku.success + sudoku.failed;
+          var rate = 0;
+          if (total > 0)
+            rate = Math.round((sudoku.success / total) * 10000) / 100;
+          document.querySelector("#total").innerHTML = total;
+          document.querySelector("#success").innerHTML = sudoku.success;
+          document.querySelector("#failed").innerHTML = sudoku.failed;
+          document.querySelector("#rate").innerHTML = `${rate}%`;
+          if (!stop && !timeout) {
+            timeout = setTimeout(() => {
+              timeout = null;
+              if (!stop) sudoku.newGame();
+            }, 1000);
+          }
+        };
 
-        window.startNewGame = function () {
+        window.startNewGame = function (s) {
           if (sudoku.isGameStarted && !sudoku.isFinished) {
             var result = confirm("Start new game?");
             if (result) {
@@ -42,14 +86,11 @@
           } else {
             sudoku.newGame();
           }
+          stop = s;
         };
 
         window.stopGame = function () {
-          if (!sudoku.isGameStarted) {
-            alert("Game has not began");
-          } else {
-            sudoku.closeGame();
-          }
+          stop = true;
         };
       };
     </script>

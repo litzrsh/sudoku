@@ -9,10 +9,15 @@
     interval = null;
     isGameStarted = false;
     isFinished = false;
+    history = [];
     minValue = {
       value: null,
       coords: [],
     };
+    success = 0;
+    failed = 0;
+    popHist = 0;
+    prev = null;
 
     constructor(el) {
       this.id = __uuid();
@@ -54,7 +59,9 @@
       this.closeGame();
       __init_sudoku.apply(this);
       for (var i = 0; i < 10; ) {
-        var coords = __random_coords();
+        var coords = __random_coords(
+          this.minValue.coords.length > 0 ? this.minValue.coords : null
+        );
         var wave = this.grid[coords[0]][coords[1]];
         if (!wave.isCollapsed) {
           var index = parseInt(Math.random() * wave.statusList.length);
@@ -65,31 +72,7 @@
       }
       __update_min.apply(this);
       this.isGameStarted = true;
-      this.interval = setInterval(() => {
-        if (!this.isFinished && this.minValue.value === null) {
-          alert("Invalid solve");
-          clearInterval(this.interval);
-          this.interval = null;
-          this.isFinished = true;
-        } else if (this.isFinished) {
-          alert("Finished");
-          clearInterval(this.interval);
-          this.interval = null;
-        } else {
-          var coords = this.minValue.coords[0];
-          var wave = this.grid[coords[0]][coords[1]];
-          var index = parseInt(Math.random() * wave.statusList.length);
-          var value = wave.statusList[index];
-          try {
-            this.collapse(coords[0], coords[1], value);
-          } catch (e) {
-            alert(e);
-            clearInterval(this.interval);
-            this.interval = null;
-            this.isFinished = true;
-          }
-        }
-      }, 1000);
+      requestAnimationFrame((t) => this.next(t));
     }
 
     closeGame() {
@@ -101,27 +84,81 @@
       this.visualGrid = null;
       this.isGameStarted = false;
       this.isFinished = false;
+      this.history = [];
+      this.popHist = 0;
+      this.prev = null;
       const items = this.el.querySelectorAll(".sudoku-item");
+      if (this.onstop) this.onstop(this);
       if (items) {
         Object.values(items).forEach((item) => (item.innerHTML = ""));
       }
     }
 
+    next(t) {
+      if (!this.isGameStarted) return;
+      if (!this.isFinished && this.minValue.value === null) {
+        var hist = __restore(this);
+        if (!hist) {
+          console.error("Failed");
+          ++this.failed;
+          this.isFinished = true;
+          if (this.onstop) this.onstop(this);
+        } else requestAnimationFrame((t) => this.next(t));
+      } else if (this.isFinished) {
+        console.info("Success");
+        ++this.success;
+        this.isFinished = true;
+        if (this.onstop) this.onstop(this);
+      } else {
+        var coords = this.minValue.coords[0];
+        var wave = this.grid[coords[0]][coords[1]];
+        var index = parseInt(Math.random() * wave.statusList.length);
+        var value = wave.statusList[index];
+        try {
+          this.collapse(coords[0], coords[1], value);
+          requestAnimationFrame((t) => this.next(t));
+        } catch (e) {
+          console.error(e);
+          var hist = __restore(this);
+          if (!hist) {
+            console.error("Failed");
+            ++this.failed;
+            this.isFinished = true;
+            if (this.onstop) this.onstop(this);
+          } else requestAnimationFrame((t) => this.next(t));
+        }
+      }
+    }
+
     collapse(i, j, value, fixed) {
+      if (value === null) return;
       var wave = this.grid[i][j];
+      var statusList = Object.assign(wave.statusList);
       if (!wave.collapsable(value))
         throw `Unable to collapse to value ${value}`;
       wave.collapse(value, fixed);
       __propagate.apply(this, [i, j, value]);
       this.visualGrid[i][j] = value;
       __update_min.apply(this);
-      for (var i = 0; i < GRID_SIZE; i++) {
-        for (var j = 0; j < GRID_SIZE; j++) {
-          wave = this.grid[i][j];
-          var el = this.el.querySelector(`[data-i="${i}"][data-j="${j}"]`);
+      if (!fixed) {
+        var item = {
+          i,
+          j,
+          value: wave.value,
+          statusList,
+        };
+        // console.log(this.history.length, item);
+        this.history.unshift(item);
+      }
+      for (var di = 0; di < GRID_SIZE; di++) {
+        for (var dj = 0; dj < GRID_SIZE; dj++) {
+          wave = this.grid[di][dj];
+          var el = this.el.querySelector(`[data-i="${di}"][data-j="${dj}"]`);
+          if (!wave.isCollapsed && wave.statusList.length === 0) {
+            __restore(this);
+            throw "Failed";
+          }
           if (!el) continue;
-          if (!wave.isCollapsed && wave.statusList.length === 0)
-            throw "Invalid solve";
           if (wave.isCollapsed) {
             el.innerHTML = `<span>${wave.value}</span>`;
           } else {
@@ -165,6 +202,12 @@
     ext(value) {
       this.statusList = this.statusList.filter((v) => v !== value);
     }
+
+    add(value) {
+      if (!this.statusList.includes(value)) {
+        this.statusList.push(value);
+      }
+    }
   }
 
   function __init_sudoku() {
@@ -195,10 +238,33 @@
     }
   }
 
-  function __is_valid(value) {
-    if (typeof value !== "number") return false;
-    if (isNaN(value)) return false;
-    return value > 0 && value < GRID_SIZE;
+  function __unpropagate(i, j, value) {
+    for (var t = 0; t < GRID_SIZE; t++) {
+      this.grid[t][j].add(value);
+      this.grid[i][t].add(value);
+    }
+    var offset = __offset(i, j);
+    for (var y = 0; y < 3; y++) {
+      for (var x = 0; x < 3; x++) {
+        this.grid[offset[0] + y][offset[1] + x].add(value);
+      }
+    }
+  }
+
+  function __restore(vm) {
+    var hist = vm.history.shift();
+    if (++vm.popHist > 1000) return null;
+    if (hist) {
+      var wave = vm.grid[hist.i][hist.j];
+      wave.isCollapsed = false;
+      wave.value = null;
+      wave.statusList = Object.assign(hist.statusList);
+      __unpropagate.apply(vm, [hist.i, hist.j, hist.value]);
+      wave.ext(hist.value);
+      __update_min.apply(vm);
+      // console.log(vm.history.length, hist.statusList.length === 1, hist, wave);
+      return hist.statusList.length === 1 ? __restore(vm) : hist;
+    } else return null;
   }
 
   function __random_coords(seeds) {
@@ -244,7 +310,6 @@
         }
       }
     }
-    console.log(this.minValue);
   }
 
   window.Sudoku = Sudoku;
