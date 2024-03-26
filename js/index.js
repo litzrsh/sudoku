@@ -91,7 +91,6 @@
       }
       __update_min(this);
       this.isGameStarted = true;
-      // requestAnimationFrame((t) => this.next(t));l;
     }
 
     closeGame() {
@@ -284,24 +283,37 @@
   function __undo(vm, i, j) {
     var wave = vm.grid[i][j];
     if (wave.isFixed) return;
-    var value = wave.value;
     wave.isCollapsed = false;
     wave.value = null;
     wave.statusList = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    if (value !== null) {
-      __unpropagate(vm, i, j, value);
+    __reset(vm);
+  }
+
+  function __reset(vm) {
+    for (var i = 0; i < GRID_SIZE; i++) {
+      for (var j = 0; j < GRID_SIZE; j++) {
+        var wave = vm.grid[i][j];
+        if (!wave.isCollapsed) {
+          ___recalc_status(vm, wave, i, j);
+        }
+      }
     }
+  }
+
+  function ___recalc_status(vm, wave, i, j) {
+    wave.statusList = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    var value;
     for (var t = 0; t < GRID_SIZE; t++) {
-      var tv = vm.grid[t][j].value;
-      if (tv) wave.ext(tv);
-      tv = vm.grid[i][t].value;
-      if (tv) wave.ext(tv);
+      value = vm.grid[t][j].value;
+      if (value) wave.ext(value);
+      value = vm.grid[i][t].value;
+      if (value) wave.ext(value);
     }
     var offset = __offset(i, j);
     for (var y = 0; y < 3; y++) {
       for (var x = 0; x < 3; x++) {
-        var tv = vm.grid[offset[0] + y][offset[1] + x];
-        if (tv) wave.ext(tv);
+        value = vm.grid[offset[0] * 3 + y][offset[1] * 3 + x];
+        if (value) wave.ext(value);
       }
     }
   }
