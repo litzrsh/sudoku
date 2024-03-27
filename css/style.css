@@ -1,3 +1,8 @@
+html,
+body {
+  font-size: 12px;
+}
+
 .toolbar {
   display: flex;
   padding: 0.5rem;
